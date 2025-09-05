@@ -1,24 +1,42 @@
-// --- timing (unchanged) ---
+// --- Timings (unchanged) ---
 const int DOT = 200;
 const int DASH = DOT * 3;
-const int GAP_INTRA = DOT;      // between symbols of same letter
-const int GAP_LETTER = DOT * 3; // between letters
-const int GAP_WORD = DOT * 7;   // between words
+const int GAP_INTRA = DOT;
+const int GAP_LETTER = DOT * 3;
+const int GAP_WORD = DOT * 7;
 
-inline void ledOn(int ms) {
-    digitalWrite(LED_BUILTIN, HIGH);
+// --- External bi-color LED on D5 (leg A) and D6 (leg B) ---
+// Wire each leg through 220Ω. Middle pin = 3V if common anode, GND if common cathode.
+const int LED_A = 10;           // e.g., red
+const int LED_B = 11;           // e.g., green
+const bool COMMON_ANODE = true; // set false if yours is common cathode
+
+inline void colorWrite(int pin, bool on) {
+    // sink for common anode, source for common cathode
+    digitalWrite(pin, COMMON_ANODE ? !on : on);
+}
+
+inline void bothOff() {
+    colorWrite(LED_A, false);
+    colorWrite(LED_B, false);
+}
+
+inline void ledOn(int ms, bool dash) {
+    // choose color: dot→A, dash→B (change if you want)
+    int pin = dash ? LED_B : LED_A;
+    colorWrite(pin, true);
     delay(ms);
-    digitalWrite(LED_BUILTIN, LOW);
+    colorWrite(pin, false);
 }
 
 // Print each symbol as we blink it
 void symbol(char s) {
     if (s == '.') {
         Serial.print('.');
-        ledOn(DOT);
+        ledOn(DOT, false);
     } else {
         Serial.print('-');
-        ledOn(DASH);
+        ledOn(DASH, true);
     }
 }
 
@@ -26,7 +44,7 @@ void letter(const char *pat) {
     for (int i = 0; pat[i]; ++i) {
         symbol(pat[i]);
         if (pat[i + 1])
-            delay(GAP_INTRA); // only between symbols
+            delay(GAP_INTRA);
     }
 }
 
@@ -154,21 +172,24 @@ void sendChar(char c) {
 void morse(const char *msg) {
     for (int i = 0; msg[i]; ++i)
         sendChar(msg[i]);
-    Serial.println(); // newline after each message
+    Serial.println();
 }
 
 void setup() {
-    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(LED_A, OUTPUT);
+    pinMode(LED_B, OUTPUT);
+    bothOff();
 
     Serial.begin(115200);
-    // Feather M0: wait briefly so the monitor attaches without hanging forever
     unsigned long t0 = millis();
-    while (!Serial && millis() - t0 < 2000) { /* wait up to ~2s */
+    while (!Serial && millis() - t0 < 2000) {
     }
 
-    // heartbeat
+    // heartbeat on LED_A so you know wiring works
     for (int i = 0; i < 3; i++) {
-        ledOn(120);
+        colorWrite(LED_A, true);
+        delay(120);
+        colorWrite(LED_A, false);
         delay(120);
     }
 }
